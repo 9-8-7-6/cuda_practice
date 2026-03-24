@@ -16,7 +16,8 @@ __global__ void vectorMul(float *M, float *N, float *P, int width) {
 
 int main(void){
 	cudaError_t err = cudaSuccess;			
-	int numElements = 500000;
+	int width = 512;
+	int numElements = width * width;
 	size_t size = numElements * sizeof(float);
 
 	printf("Vector addition of %d elements\n", numElements);
@@ -73,11 +74,31 @@ int main(void){
 
 	int threadsPerBlock = 256;
 	int blocksPerGrid = (numElements + threadsPerBlock - 1) / threadsPerBlock;
-	vectorMul<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, numElements);
+	vectorMul<<<blocksPerGrid, threadsPerBlock>>>(d_a, d_b, d_c, width);
 
 	err = cudaMemcpy(h_c, d_c, size, cudaMemcpyDeviceToHost);
 
-	// verification??
+	// Verification
+	bool success = true;
+	for (int row = 0; row < width; row++) {
+		for (int col = 0; col < width; col++) {
+			float sum = 0.0f;
+			for (int k = 0; k < width; k++) {
+				sum += h_a[row * width + k] * h_b[k * width + col];
+			}
+			if (fabs(h_c[row * width + col])- sum > 1e-2){
+				success = false;
+				break;
+			}
+		}
+	}
+
+
+	if (success) {
+		printf("Verification PASSED\n");
+	} else {
+		printf("Verification FAILED\n");
+	}
 
 	err = cudaFree(d_a);
 
